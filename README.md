@@ -1,5 +1,8 @@
 # zoom-chat-analyzer-app
+
 A streamlit app to analyze saved zoom meeting chat
+
+> Deployed app: https://share.streamlit.io/tomytjandra/zoom-chat-analyzer-app/app.py
 
 ## Project Structure
 
