@@ -1,6 +1,7 @@
 # data analysis
 import pandas as pd
 from numpy import nan
+from datetime import datetime, timedelta
 pd.options.plotting.backend = "plotly"
 
 # string processing
@@ -12,12 +13,11 @@ from thefuzz import process
 import streamlit as st
 
 # FUNCTION: convert txt to dataframe
-def convert_to_df(file):
+def convert_local_chat_to_df(file):
     chats = []
 
     regex_time = r'\d{2}:\d{2}:\d{2}'
     regex_author = r'\bFrom \s(.*?:)'
-    regex_comment = r'(?:\: )(.*$)'
 
     for line in file.split('\n'):
         
@@ -41,6 +41,35 @@ def convert_to_df(file):
 
     return pd.DataFrame(chats)
 
+def convert_cloud_chat_to_df(file, start_datetime):
+    chats = []
+
+    regex_time = r'\d{2}:\d{2}:\d{2}'
+
+    for line in file.split('\n'):
+        line = line.split('\t')
+        info = re.search(regex_time, line[0])
+
+        if info is not None:
+            chat_time = datetime.strptime(info.group(), '%H:%M:%S')
+            chat_timedelta = timedelta(hours=chat_time.hour, minutes=chat_time.minute, seconds=chat_time.second)
+            time = start_datetime + chat_timedelta
+            sender = line[1].replace(':', '')
+            message = line[2].strip()
+        else:
+            message = line[0].strip()
+        
+        chat = {
+            'time': time,
+            'from': sender,
+            'to': "Everyone",
+            'message': message
+        }
+
+        chats.append(chat)
+
+    return pd.DataFrame(chats)
+
 # FUNCTION: match students' real and zoom name
 def matching_name(students_name, freq_by_name):
     matching = []
@@ -59,7 +88,9 @@ def matching_name(students_name, freq_by_name):
         }
         matching.append(student)
     
-    return pd.DataFrame(matching).sort_values('Chat Frequency', ascending=False).reset_index(drop=True)
+    return pd.DataFrame(matching).sort_values(
+        by=['Chat Frequency', 'Real Name'],
+        ascending=[False, True]).reset_index(drop=True)
 
 # FUNCTION: higlight dataframe row
 def highlight(s):
@@ -79,19 +110,44 @@ st.set_page_config(
     page_title="Zoom Chat Analyzer",
     page_icon="assets/zoom.png",
 )
-st.markdown("""
-            <style>            
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}            
-            </style>            
-            """, unsafe_allow_html=True)
+st.markdown(
+    """
+    <style>            
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .footer {
+        position: fixed;
+        display: block;
+        width: 100%;
+        bottom: 0;
+        color: rgba(49, 51, 63, 0.4);
+    }
+    a:link , a:visited{
+        color: rgba(49, 51, 63, 0.4);
+        background-color: transparent;
+        text-decoration: underline;
+    }
+    </style>
+    <div class="footer">
+        <p>
+            Developed with ❤ by 
+            <a href="https://github.com/tomytjandra" target="_blank">
+            Tomy Tjandra
+            </a>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # TITLE
 st.markdown("<h1 style='text-align: center;'>Zoom Chat Analyzer</h1>", unsafe_allow_html=True)
 
 # SIDEBAR
-include_private = st.sidebar.checkbox("Include Private Messages")
-uploaded_file = st.sidebar.file_uploader("Upload .txt file", type=['txt'])
+txt_source = st.sidebar.selectbox("Choose the source of txt file", options=["Cloud", "Local"])
+if txt_source == "Local":
+    include_private = st.sidebar.checkbox("Include Private Messages")
+else:
+    include_private = False
+uploaded_file = st.sidebar.file_uploader("Upload chat (txt file)", type=['txt'])
 students_name = st.sidebar.text_area("Copy Paste Students Name Here:", height=250)
 
 # MAIN CONTENT
@@ -104,7 +160,15 @@ if uploaded_file is not None:
     # read uploaded txt file and convert to dataframe
     stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
     string_data = stringio.read()
-    chats_df = convert_to_df(string_data)
+    
+    if txt_source == "Local":
+        chats_df = convert_local_chat_to_df(string_data)
+    else:
+        date, time = re.findall(r'\d{6,}', uploaded_file.name)
+        start_datetime = datetime.strptime(date+time, '%Y%m%d%H%M%S') + timedelta(hours=7)
+        # start_time = start_datetime.time()
+        # start_timedelta = timedelta(hours=start_time.hour, minutes=start_time.minute, seconds=start_time.second)
+        chats_df = convert_cloud_chat_to_df(string_data, start_datetime)
     
     # concate the row if a chat is still belong to one participant
     chats_df = chats_df.groupby(['time', 'from', 'to'])['message'].apply(' '.join).reset_index()
