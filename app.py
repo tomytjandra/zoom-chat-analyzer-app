@@ -7,7 +7,7 @@ pd.options.plotting.backend = "plotly"
 # string processing
 import re
 from io import StringIO
-from thefuzz import process
+from thefuzz import process, fuzz
 
 # web app
 import streamlit as st
@@ -70,27 +70,57 @@ def convert_cloud_chat_to_df(file, start_datetime):
 
     return pd.DataFrame(chats)
 
-# FUNCTION: match students' real and zoom name
-def matching_name(students_name, freq_by_name):
+# FUNCTION: match participants' real and zoom name
+def matching_name(participants_name, freq_by_name):
     matching = []
-    for name in students_name.strip().split('\n'):
-        zoom_name, sim_score, sim_idx = process.extractOne(name, freq_by_name['Zoom Name'])
-        chat_freq = freq_by_name.set_index('Zoom Name').loc[zoom_name].values[0]
-        
-        if sim_score < 75:
-            zoom_name = nan
+    zoom_name_list = freq_by_name['Zoom Name']
+    participants_name_list = participants_name.strip().split('\n')
+    SCORE_CUTOFF = 80
+
+    # Real Name MATCH TO Zoom Name
+    for name in participants_name_list:
+        # try several approaches
+        result_list = [
+            process.extractOne(name, zoom_name_list, score_cutoff=SCORE_CUTOFF),
+            process.extractOne(name, zoom_name_list, scorer=fuzz.partial_ratio, score_cutoff=SCORE_CUTOFF),
+            process.extractOne(name, zoom_name_list, scorer=fuzz.token_sort_ratio, score_cutoff=SCORE_CUTOFF)
+        ]
+        # get best match
+        result = max(result_list, key=lambda x: x[1] if x is not None else 0)
+        if result is not None:
+            zoom_name, sim_score, sim_idx = result
+            chat_freq = freq_by_name.iloc[sim_idx]['Chat Frequency']
+        else:
+            # if the result is not good enough (below score_cutoff)
+            zoom_name = None
             chat_freq = 0
-            
-        student = {
+
+        matching.append({
             'Real Name': name,
             'Zoom Name': zoom_name,
             'Chat Frequency': chat_freq
-        }
-        matching.append(student)
-    
-    return pd.DataFrame(matching).sort_values(
+        })
+
+    # list to dataframe
+    match_df = pd.DataFrame(matching).sort_values(
         by=['Chat Frequency', 'Real Name'],
         ascending=[False, True]).reset_index(drop=True)
+
+    # Remaining Zoom Name MATCH TO Real Name
+    remaining = []
+    remaining_set = set(zoom_name_list.values) - set(match_df['Zoom Name'].unique())
+    for zoom_name in remaining_set:
+        remaining.append({
+            'Zoom Name': zoom_name,
+            'Chat Frequency': freq_by_name[freq_by_name['Zoom Name'] == zoom_name]['Chat Frequency'].values[0]
+        })
+
+    # list to dataframe
+    remaining_df = pd.DataFrame(remaining).sort_values(
+        by=['Chat Frequency', 'Zoom Name'],
+        ascending=[False, True]).reset_index(drop=True)
+
+    return match_df, remaining_df
 
 # FUNCTION: higlight dataframe row
 def highlight(s):
@@ -148,7 +178,7 @@ if txt_source == "Local":
 else:
     include_private = False
 uploaded_file = st.sidebar.file_uploader("Upload chat (txt file)", type=['txt'])
-students_name = st.sidebar.text_area("Copy Paste Students Name Here:", height=250)
+participants_name = st.sidebar.text_area("Copy Paste Real Participants' Name Here:", height=250)
 
 # MAIN CONTENT
 viz_content = st.container()
@@ -226,11 +256,13 @@ if uploaded_file is not None:
     # MATCHING TABLE
     st.markdown("## Matching Real and Zoom Name")
 
-    if students_name:
-        match_df = matching_name(students_name, freq_by_name)
+    if participants_name:
+        match_df, remaining_df = matching_name(participants_name, freq_by_name)
         st.dataframe(match_df.style.apply(highlight, axis=1))
+        st.markdown("### Un-match Zoom Name")
+        st.dataframe(remaining_df)
     else:
-        st.warning("Please input students name based on [Algoritma: Active Student](https://docs.google.com/spreadsheets/d/12FB9410fhRhZp9jl5qLe7x-LGw0QTSfLujA-dE867JE)")
+        st.warning("Please input participants' name based on [Algoritma: Active Student](https://docs.google.com/spreadsheets/d/12FB9410fhRhZp9jl5qLe7x-LGw0QTSfLujA-dE867JE)")
 
     # RAW CHATS TABLE
     st.markdown("## Raw Chats")
