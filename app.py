@@ -17,16 +17,21 @@ def convert_local_chat_to_df(file):
     chats = []
 
     regex_time = r'\d{2}:\d{2}:\d{2}'
-    regex_author = r'\bFrom \s(.*?:)'
+    # regex_author = r'\bFrom \s(.*?:)'
 
     for line in file.split('\n'):
         
         info = re.search(regex_time, line)
         if info is not None:
             time = info.group()
-            author = re.search(regex_author, line).group()
-            sender = author.split(' to ')[0].replace('From', '').strip()
-            receiver = author.split(' to ')[1].replace(':', '').replace('(Direct Message)', '').strip()
+
+            author = re.split(' to ', line.strip()[14:], flags=re.IGNORECASE)
+            sender = author[0].strip()
+            receiver = author[1].strip().replace(':', '').replace('(Direct Message)', '')
+
+            # author = re.search(regex_author, line).group()
+            # sender = author.split(' to ')[0].replace('From', '').strip()
+            # receiver = author.split(' to ')[1].replace(':', '').replace('(Direct Message)', '').strip()
         else:
             message = line.strip()
 
