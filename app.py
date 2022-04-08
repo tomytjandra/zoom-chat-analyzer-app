@@ -11,7 +11,6 @@ from thefuzz import process, fuzz
 
 # web app
 import streamlit as st
-import pyperclip
 
 # FUNCTION: convert txt to dataframe
 def convert_local_chat_to_df(file):
