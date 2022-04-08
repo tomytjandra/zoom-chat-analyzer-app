@@ -263,7 +263,12 @@ if uploaded_file is not None:
 
     if participants_name:
         match_df, remaining_df = matching_name(participants_name, freq_by_name)
-        st.button("Copy DataFrame to Clipboard", on_click=match_df.to_clipboard())
+        # st.button("Copy DataFrame to Clipboard", on_click=match_df.to_clipboard())
+        st.download_button(
+            label='📥 Download as CSV',
+            data=convert_to_csv(match_df),
+            file_name=f"Matching_{uploaded_file.name.split('.')[0]}.csv"
+        )
         st.dataframe(match_df.style.apply(highlight, axis=1))
         st.markdown("### Un-match Zoom Name")
         st.dataframe(remaining_df)
