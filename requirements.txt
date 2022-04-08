@@ -6,4 +6,3 @@ python-Levenshtein==0.12.2
 streamlit==1.8.1
 pyperclip==1.8.2
 PyQt5
-PyGTK
