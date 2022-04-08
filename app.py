@@ -11,6 +11,7 @@ from thefuzz import process, fuzz
 
 # web app
 import streamlit as st
+import pyperclip
 
 # FUNCTION: convert txt to dataframe
 def convert_local_chat_to_df(file):
@@ -263,6 +264,7 @@ if uploaded_file is not None:
 
     if participants_name:
         match_df, remaining_df = matching_name(participants_name, freq_by_name)
+        st.button("Copy DataFrame to Clipboard", on_click=match_df.to_clipboard())
         st.dataframe(match_df.style.apply(highlight, axis=1))
         st.markdown("### Un-match Zoom Name")
         st.dataframe(remaining_df)
