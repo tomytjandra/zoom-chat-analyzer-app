@@ -25,15 +25,23 @@ def convert_local_chat_to_df(file):
         if info is not None:
             time = info.group()
 
-            author = re.split(' to ', line.strip()[14:], flags=re.IGNORECASE)
-            sender = author[0].strip()
-            receiver = author[1].strip().replace(':', '').replace('(Direct Message)', '')
+            if "privately" in line:
+                author = re.split(' to ', line.strip()[14:], flags=re.IGNORECASE)
+                sender = author[0].strip()
+                temporary = re.split(' : ', author[1].strip(), flags=re.IGNORECASE)
+                receiver = temporary[0].replace('(privately)', '')
+                message = temporary[1]
+            else:
+                author = re.split(' : ', line.strip()[14:], flags=re.IGNORECASE)
+                sender = author[0].strip()
+                receiver = "Everyone"
+                message = author[1].strip()
 
             # author = re.search(regex_author, line).group()
             # sender = author.split(' to ')[0].replace('From', '').strip()
             # receiver = author.split(' to ')[1].replace(':', '').replace('(Direct Message)', '').strip()
-        else:
-            message = line.strip()
+        # else:
+        #     message = line.strip()
 
             chat = {
                 'time': time,
@@ -215,6 +223,7 @@ if uploaded_file is not None:
     chats_df['period'] = pd.to_datetime(chats_df['time'], format='%H:%M:%S').dt.floor(freq)
     
     # filter row, whether or not to include private chat
+    # analyze_chat = chats_df.copy() if not include_private else chats_df
     analyze_chat = chats_df[chats_df['to'] == 'Everyone'].copy() if not include_private else chats_df
 
     # LINE PLOT VISUALIZATION
