@@ -31,6 +31,12 @@ def convert_local_chat_to_df(file):
                 temporary = re.split(' : ', author[1].strip(), flags=re.IGNORECASE)
                 receiver = temporary[0].replace('(privately)', '')
                 message = temporary[1]
+            elif "Direct Message" in line:
+                author = re.split(' to ', line.strip()[14:], flags=re.IGNORECASE)
+                sender = author[0].strip()
+                temporary = re.split(' : ', author[1].strip(), flags=re.IGNORECASE)
+                receiver = temporary[0].replace('(Direct Message)', '')
+                message = temporary[1]
             else:
                 author = re.split(' : ', line.strip()[14:], flags=re.IGNORECASE)
                 sender = author[0].strip()
